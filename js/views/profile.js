@@ -111,7 +111,7 @@ route('doctor', async (view, id) => {
   const draw = () => {
     const rec = recs.find(r => r.month === month);
     const res = rec ? resultFor(doctor, rec, depts) : null;
-    const canEdit = can.editData(ctx.user) && (!rec || rec.status !== 'approved' || ctx.user.role === 'process_manager');
+    const canEdit = can.editData(ctx.user) && (!rec || rec.status !== 'approved' || can.admin(ctx.user));
     view.innerHTML = `
     <div class="row no-print" style="margin-bottom:12px">${!isDoc ? `<button class="btn sm" onclick="history.back()">${icons.back} رجوع</button>` : ''}<span class="spacer"></span>
       <select class="i" id="mSel" style="width:auto">${recs.map(r => `<option value="${r.month}" ${r.month === month ? 'selected' : ''}>${monthLabel(r.month)}${isDoc ? '' : ' — ' + ({ draft: 'مسودة', submitted: 'بانتظار الاعتماد', approved: 'معتمد' }[r.status] || '')}</option>`).join('')}${!recs.length ? '<option>لا توجد بيانات</option>' : ''}</select>

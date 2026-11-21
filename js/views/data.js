@@ -80,7 +80,7 @@ export function openRecordEditor(doctor, month, rec, depts, onSaved) {
         if (isNew) {
           const ex = await store.get('records', id).catch(() => null);
           if (ex && !await confirmBox(`يوجد بالفعل سجل لشهر ${monthLabel(mon)}. استبداله؟`, 'استبدال', true)) return;
-          if (ex?.status === 'approved' && ctx.user.role !== 'process_manager') return toast('السجل معتمد — لا يمكن تعديله إلا بواسطة Process Manager', 'err');
+          if (ex?.status === 'approved' && !can.admin(ctx.user)) return toast('السجل معتمد — لا يمكن تعديله إلا بواسطة مدير الفرع أو الـ Process Manager', 'err');
         }
         try {
           await store.put('records', id, { id, doctorId: doctor.id, hospitalId: doctor.hospitalId, month: mon, status: 'draft', data: read(), computed: null, updatedBy: ctx.user.uid, updatedByName: ctx.user.name || '', updatedAt: nowIso() });
@@ -242,7 +242,7 @@ route('upload', async (view) => {
   </div>
   <div class="card"><h2>2) ارفع الملف بعد ملئه</h2>
     <input type="file" id="upF" accept=".xlsx,.xls,.csv" class="i">
-    <p class="hint">السيستم بيتعرف على الأعمدة بأسمائها، وبيرفض الأرقام السالبة أو غير الرقمية، وبيطابق كل طبيب بالرقم القومي. السجلات المعتمدة لا تُستبدل إلا بواسطة Process Manager.</p>
+    <p class="hint">السيستم بيتعرف على الأعمدة بأسمائها، وبيرفض الأرقام السالبة أو غير الرقمية، وبيطابق كل طبيب بالرقم القومي. السجلات المعتمدة لا تُستبدل إلا بواسطة مدير الفرع أو الـ Process Manager.</p>
     <div id="upRes"></div>
   </div>`;
   $('#upH').onchange = (e) => { hid = e.target.value; };
@@ -336,7 +336,7 @@ async function handleUpload(file, hid, box) {
     }
     if (bad) return;
     const id = `${d.id}_${ctx.month}`;
-    if (existing[id]?.status === 'approved' && ctx.user.role !== 'process_manager') return errors.push(`${line} (${d.name}): سجل الشهر معتمد بالفعل — لن يُستبدل`);
+    if (existing[id]?.status === 'approved' && !can.admin(ctx.user)) return errors.push(`${line} (${d.name}): سجل الشهر معتمد بالفعل — لن يُستبدل`);
     recs.push({ id, doctorId: d.id, hospitalId: hid, month: ctx.month, status: 'draft', data, computed: null, updatedBy: ctx.user.uid, updatedByName: ctx.user.name || '', updatedAt: nowIso(), _doctor: d, _replace: !!existing[id] });
   });
 

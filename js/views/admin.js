@@ -38,7 +38,7 @@ route('hospitals', async (view) => {
 route('users', async (view) => {
   setTitle('إدارة المستخدمين', 'الصلاحيات: Process Manager · مدير الفرع · منسق الإنتاجية · عضو اللجنة · الطبيب');
   if (!can.manageUsers(ctx.user)) { view.innerHTML = '<div class="card empty">ليست لديك صلاحية</div>'; return; }
-  const isPM = ctx.user.role === 'process_manager';
+  const isPM = can.admin(ctx.user);
   const users = (await store.list('users', isPM ? [] : [['hospitalId', '==', ctx.user.hospitalId]])).filter(u => u.active !== false || isPM);
   await loadDoctors();
   const showInactive = ctx.cache.showInactive || false;

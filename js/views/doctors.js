@@ -103,7 +103,7 @@ export function doctorForm(doc, onSaved) {
       <div class="f" style="grid-column:1/-1"><span style="font-weight:700;font-size:12.5px;color:var(--navy-2)">الصورة</span>
         <div class="row" style="margin-top:6px"><div id="ph">${avatar({ ...d, photo })}</div><input type="file" accept="image/*" id="photoIn"><button type="button" class="btn sm" id="rmPh">إزالة الصورة</button></div></div>
     </form><div id="docErr"></div>`,
-    footer: `${doc && ctx.user.role === 'process_manager' ? '<button class="btn danger" id="delDoc">حذف الطبيب</button><span class="spacer"></span>' : ''}<button class="btn" data-cancel>إلغاء</button><button class="btn primary" id="saveDoc">حفظ</button>`,
+    footer: `${doc && can.admin(ctx.user) ? '<button class="btn danger" id="delDoc">حذف الطبيب</button><span class="spacer"></span>' : ''}<button class="btn" data-cancel>إلغاء</button><button class="btn primary" id="saveDoc">حفظ</button>`,
     onMount: (m, close) => {
       m.querySelector('[data-cancel]').onclick = close;
       m.querySelector('#photoIn').onchange = async (e) => { const file = e.target.files[0]; if (!file) return; photo = await resizeImage(file, 320); m.querySelector('#ph').innerHTML = avatar({ ...d, photo }); };
