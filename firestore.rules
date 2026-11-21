@@ -1,0 +1,93 @@
+rules_version = '2';
+// قواعد أمان نظام قياس إنتاجية الأطباء — كل قراءة وكتابة مقيدة بالصلاحية والمستشفى
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function hasProfile() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && me().active == true; }
+    function role() { return me().role; }
+    function isPM() { return hasProfile() && role() == 'process_manager'; }
+    function isBM() { return hasProfile() && role() == 'branch_manager'; }
+    function isAll() { return isPM() || isBM(); }
+    function isCoord() { return hasProfile() && role() == 'coordinator'; }
+    function isCommittee() { return hasProfile() && role() == 'committee'; }
+    function isDoctor() { return hasProfile() && role() == 'doctor'; }
+    function myHosp() { return me().hospitalId; }
+    function sameHosp(h) { return (isCoord() || isCommittee()) && h == myHosp(); }
+
+    // الإعدادات: النسب والشعار فقط (تظهر في شاشة الدخول)
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isPM();
+    }
+
+    match /hospitals/{id} {
+      allow read: if hasProfile();
+      allow write: if isPM();
+    }
+
+    match /doctors/{id} {
+      allow read: if isAll() || sameHosp(resource.data.hospitalId) || (isDoctor() && me().doctorId == id);
+      allow create: if isPM() || (isCoord() && request.resource.data.hospitalId == myHosp());
+      allow update: if isPM() || (isCoord() && resource.data.hospitalId == myHosp() && request.resource.data.hospitalId == myHosp());
+      allow delete: if isPM();
+    }
+
+    match /records/{id} {
+      allow read: if isAll() || sameHosp(resource.data.hospitalId)
+                  || (isDoctor() && resource.data.doctorId == me().doctorId && resource.data.status == 'approved');
+      allow create: if isPM()
+                    || (isCoord() && request.resource.data.hospitalId == myHosp() && request.resource.data.status in ['draft', 'submitted']);
+      allow update: if isPM()
+                    || (isCoord() && resource.data.hospitalId == myHosp() && request.resource.data.hospitalId == myHosp()
+                        && resource.data.status != 'approved' && request.resource.data.status in ['draft', 'submitted'])
+                    || (isBM() && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['status', 'computed', 'approvedBy', 'approvedByName', 'approvedAt'])
+                        && request.resource.data.status in ['approved', 'draft']);
+      allow delete: if isPM();
+    }
+
+    match /depts/{id} {
+      allow read: if isAll() || sameHosp(resource.data.hospitalId);
+      allow create, update: if isPM() || (isCoord() && request.resource.data.hospitalId == myHosp());
+      allow delete: if isPM() || (isCoord() && resource.data.hospitalId == myHosp());
+    }
+
+    match /users/{uid} {
+      allow read: if (signedIn() && request.auth.uid == uid) || isPM()
+                  || (isCoord() && resource.data.hospitalId == myHosp());
+      // أول مسؤول للنظام فقط — مرة واحدة
+      allow create: if (signedIn() && request.auth.uid == uid
+                        && request.resource.data.role == 'process_manager'
+                        && !exists(/databases/$(database)/documents/meta/bootstrap)
+                        && existsAfter(/databases/$(database)/documents/meta/bootstrap))
+                    || isPM()
+                    || (isCoord() && request.resource.data.hospitalId == myHosp() && request.resource.data.role in ['doctor', 'committee']);
+      allow update: if isPM()
+                    || (isCoord() && resource.data.hospitalId == myHosp() && resource.data.role in ['doctor', 'committee']
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'replacedBy']));
+      allow delete: if false;
+    }
+
+    // إصدار كلمة المرور (مفتاحه بصمة مشفرة للرقم القومي — لا يكشف الرقم)
+    match /logins/{h} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if isPM() || isCoord();
+    }
+
+    match /meta/bootstrap {
+      allow get: if true;
+      allow create: if signedIn() && !exists(/databases/$(database)/documents/meta/bootstrap)
+                    && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'process_manager';
+      allow update, delete: if false;
+    }
+
+    match /logs/{id} {
+      allow create: if hasProfile() && request.resource.data.by == request.auth.uid;
+      allow read: if isAll();
+      allow update, delete: if false;
+    }
+  }
+}
