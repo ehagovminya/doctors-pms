@@ -7,18 +7,21 @@ const FB = 'https://www.gstatic.com/firebasejs/10.14.1/';
 
 export const ROLES = {
   process_manager: 'Process Manager (مسؤول النظام)',
-  branch_manager: 'مدير الفرع',
+  branch_manager: 'مدير الفرع (كل الصلاحيات)',
   coordinator: 'منسق الإنتاجية بالمستشفى',
   committee: 'عضو لجنة الإنتاجية',
   doctor: 'طبيب',
 };
 
+// مدير الفرع له نفس صلاحيات الـ Process Manager بالكامل
+export const isAdmin = (u) => ['process_manager', 'branch_manager'].includes(u?.role);
 export const can = {
-  manageSettings: (u) => u?.role === 'process_manager',
-  manageUsers: (u) => u?.role === 'process_manager' || u?.role === 'coordinator',
-  manageHospitals: (u) => u?.role === 'process_manager',
-  approve: (u) => u?.role === 'process_manager' || u?.role === 'branch_manager',
-  editData: (u) => u?.role === 'process_manager' || u?.role === 'coordinator',
+  admin: isAdmin,
+  manageSettings: (u) => isAdmin(u),
+  manageUsers: (u) => isAdmin(u) || u?.role === 'coordinator',
+  manageHospitals: (u) => isAdmin(u),
+  approve: (u) => isAdmin(u),
+  editData: (u) => isAdmin(u) || u?.role === 'coordinator',
   seeAllHospitals: (u) => ['process_manager', 'branch_manager'].includes(u?.role),
   isDoctor: (u) => u?.role === 'doctor',
 };
