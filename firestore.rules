@@ -7,7 +7,7 @@ service cloud.firestore {
     function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
     function hasProfile() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && me().active == true; }
     function role() { return me().role; }
-    function isPM() { return hasProfile() && role() == 'process_manager'; }
+    function isPM() { return hasProfile() && role() in ['process_manager', 'branch_manager']; } // مدير الفرع = كل الصلاحيات
     function isBM() { return hasProfile() && role() == 'branch_manager'; }
     function isAll() { return isPM() || isBM(); }
     function isCoord() { return hasProfile() && role() == 'coordinator'; }
